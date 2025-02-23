@@ -41,14 +41,14 @@ documents = products_df.to_dict(orient='records')
 
 
 
-##Här gör jag en funktion för att få fram leverantörsinformation från SupplierID.
+## Här gör jag en funktion för att få fram leverantörsinformation från SupplierID.
 def get_supplier_info(supplier_id):
     for supplier in suppliers_data:
         if supplier['SupplierID'] == supplier_id:
             return supplier['ContactName'], supplier['Phone'], supplier['CompanyName']
 
 
-##Samma query som är i Notebook över produkter som behöver beställas.
+## Samma query som är i Notebook över produkter som behöver beställas.
 def get_products_to_order():
     query = {
         "$expr": {
@@ -78,9 +78,18 @@ if selection == "Startsida":
         - **Lagersaldo**: Visar produkter som behöver beställas baserat på lagernivå.
     """)
     st.image('/Users/k/Documents/TUC/DatabaseTypes/Assignment_01/images/stock_mngmnt.png', use_column_width=True)
-# Visning av produkter
+    
+## Produkter
 elif selection == "Produkter":
-    st.title("Alla Våra Produkter")
+
+    ## skapar två kolumner så att vi kan ha titlen och bild på en och samma rad
+    col1, col2 = st.columns([4, 1]) 
+    with col1: ## vänstra kolumn - där vi vill ha vår text
+        st.title("Alla  Våra Produkter")
+        
+    with col2: ## högra kolumn - där vi vill ha vår bild
+        st.image("/Users/k/Documents/TUC/DatabaseTypes/Assignment_01/images/products.png", width=80)
+
     products_to_display = list(collection.find())  # Hämtar alla produkter
     for product in products_to_display:
         st.write(f"**Produkt:** {product['ProductName']}")
@@ -89,20 +98,26 @@ elif selection == "Produkter":
         st.write(f"**Telefon:** {product['Phone']}")
         st.write('---')
 
-# Visning av leverantörer
+## Leverantörer
 elif selection == "Leverantörer":
-    st.title("Alla Leverantörer")
     
-    # Hämta alla unika leverantörer
-    suppliers_to_display = list(collection.aggregate([
+    ## skapar två kolumner så att vi kan ha titlen och bild på en och samma rad
+    col1, col2 = st.columns([4, 1]) 
+    with col1: ## vänstra kolumn - där vi vill ha vår text
+        st.title("Alla Leverantörer")
+        
+    with col2: ## högra kolumn - där vi vill ha vår bild
+        st.image("/Users/k/Documents/TUC/DatabaseTypes/Assignment_01/images/suppliers.png", width=80)
+    
+    suppliers_to_display = list(collection.aggregate([ ## gämtar all info för våra unika levarntörer
         {"$group": {"_id": "$SupplierName", 
                     "ContactName": {"$first": "$ContactName"},
                     "Phone": {"$first": "$Phone"},
                     "count": {"$sum": 1}}}
-    ]))  # Gruppér leverantörerna och samla kontaktinformation
+    ]))  
     
-    # Sortera leverantörerna alfabetiskt baserat på deras namn
-    suppliers_to_display_sorted = sorted(suppliers_to_display, key=lambda x: x['_id'])
+    
+    suppliers_to_display_sorted = sorted(suppliers_to_display, key=lambda x: x['_id']) ## sorterar alfabetisk ordning
     
     if suppliers_to_display_sorted:
         for supplier in suppliers_to_display_sorted:
@@ -115,8 +130,7 @@ elif selection == "Leverantörer":
         st.write("Inga leverantörer funna.")
 
 
-
-
+## Lagersaldo
 elif selection == "Lagersaldo":
     st.title("Produkter som behöver beställas!")
     
@@ -129,40 +143,42 @@ elif selection == "Lagersaldo":
         if product['ReorderLevel'] > (product['UnitsInStock'] + product['UnitsOnOrder'])
     ]
     
+    
     if products_to_order:
-        # Skapa listor för produktnamn och lagerstatus för att kunna plotta
+        ## lista för de som skall plottas 
         product_names = [product['ProductName'] for product in products_to_order]
         stock_in_hand = [product['UnitsInStock'] for product in products_to_order]
         reorder_levels = [product['ReorderLevel'] for product in products_to_order]
         
-        # Beräkna hur mycket som behöver beställas
+        ## beräkning för beställning
         reorder_needed = [max(0, reorder_levels[i] - stock_in_hand[i]) for i in range(len(products_to_order))]
         
-        # Skapa en bar chart
+        ## bar chart
         fig, ax = plt.subplots(figsize=(10, 6))
         index = np.arange(len(product_names))
         bar_width = 0.35
-        
-        bars1 = ax.bar(index, stock_in_hand, bar_width, label='Enheter i lager')
-        bars2 = ax.bar(index + bar_width, reorder_needed, bar_width, label='Enheter att beställa')
-        
-        # Lägg till etiketter och titel
+
+        # färger för staplarna så att det matchar med bilden på startsidan 
+        color1 = '#FF7043'  # Orangearosa
+        color2 = '#D500F9'  # Rosalila
+
+        bars1 = ax.bar(index, stock_in_hand, bar_width, label='Enheter i lager', color=color1)
+        bars2 = ax.bar(index + bar_width, reorder_needed, bar_width, label='Enheter att beställa', color=color2)
+
         ax.set_xlabel('Produkter')
         ax.set_ylabel('Antal Enheter')
         ax.set_title('Lagersaldo för produkter som behöver beställas')
         ax.set_xticks(index + bar_width / 2)
         ax.set_xticklabels(product_names, rotation=45, ha="right")
         ax.legend()
-
-        # Visa diagrammet
+        
         st.pyplot(fig)
-
-        # Visa produktdetaljer nedanför diagrammet
+        
         for product in products_to_order:
             st.write(f"**Produkt:** {product['ProductName']}")
             st.write(f"**Enheter i lager:** {product['UnitsInStock']}")
-            st.write(f"**Units on order:** {product['UnitsOnOrder']}")
-            st.write(f"**Beställningsnivå (Reorder Level):** {product['ReorderLevel']}")
+            st.write(f"**Antal enheter beställda:** {product['UnitsOnOrder']}")
+            st.write(f"**Beställningsnivå:** {product['ReorderLevel']}")
             st.write(f"**Leverantör:** {product['SupplierName']}")
             st.write(f"**Kontaktperson:** {product['ContactName']}")
             st.write(f"**Telefon:** {product['Phone']}")
